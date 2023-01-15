@@ -1,0 +1,15 @@
+﻿<Router AppAssembly="@typeof(App).Assembly">
+	<Found Context="routeData">
+		@* If the web serial API is supported, then we can render the regular content *@
+		<WebSerialSupportChecker>
+			<RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+			<FocusOnNavigate RouteData="@routeData" Selector="h1" />
+		</WebSerialSupportChecker>
+	</Found>
+	<NotFound>
+		<PageTitle>Not found</PageTitle>
+		<LayoutView Layout="@typeof(MainLayout)">
+			<p role="alert">Sorry, there's nothing at this address.</p>
+		</LayoutView>
+	</NotFound>
+</Router>

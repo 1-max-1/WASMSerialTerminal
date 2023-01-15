@@ -1,0 +1,37 @@
+﻿@*
+This control will check if the users browser supports the web serial API. If not supported then a full-page message is displayed.
+If the web serial API is supported, the ChildContent render fragment will be rendered. This component is intended to be used in App.razor.
+*@
+
+@inject IJSRuntime js
+
+@if (checking) {
+	@* This is the same app loading screen as in index.html *@
+	<div class="container-fluid d-flex flex-column align-items-center mt-5">
+		<div class="spinner-border text-primary mb-2" style="width: 7rem; height: 7rem;" role="status"></div>
+		<h1>WASM Serial Terminal</h1>
+		<p class="fs-5 mt-1">App loading...</p>
+	</div>
+}
+else if (!webSerialSupported) {
+	<div class="container d-flex flex-column align-items-center mt-5 p-4">
+		<p>Oh no! It seems your browser does not support the <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API">Web Serial API</a>, which is required to run this app. The list of supported browsers can be found <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API#browser_compatibility">here</a>.</p>
+	</div>
+}
+else {
+	@ChildContent
+}
+
+@code {
+	[Parameter]
+	public RenderFragment? ChildContent { get; set; }
+
+	private bool checking = true;
+	private bool webSerialSupported = false;
+
+	protected override async Task OnInitializedAsync() {
+		checking = true;
+		webSerialSupported = await js.InvokeAsync<bool>("eval", "'serial' in navigator");
+		checking = false;
+	}
+}

@@ -1,0 +1,52 @@
+﻿@*
+This component contains a readonly text box and 2 checkboxes below it for controlling x and y autoscrolling.
+The text box will fill all available width, and will fill all available height minus the height of the checkboxes.
+*@
+
+@inject IJSRuntime jsRuntime
+
+<div class="@("d-flex flex-column " + Class)">
+	<RadzenTextArea ReadOnly="true" Value="@terminalText" Style="white-space: pre; overflow-wrap: normal; overflow-x: scroll;" id="serial-text-output" class="w-100 flex-grow-1" />
+	<div>
+		<RadzenCheckBox @bind-Value=@autoScrollDown Name="AutoScrollDownCheckbox" />
+		<RadzenLabel Text="Auto scroll down" Component="AutoScrollDownCheckbox" class="align-middle me-4" />
+
+		<RadzenCheckBox @bind-Value=@autoScrollRight Name="AutoScrollRightCheckbox" />
+		<RadzenLabel Text="Auto scroll right" Component="AutoScrollRightCheckbox" class="align-middle" />
+	</div>
+</div>
+
+@code {
+	private string terminalText = "";
+	private bool autoScrollDown = true;
+	private bool autoScrollRight = true;
+
+	/// <summary>
+	/// Additional HTML classes to put on the root div of this <see cref="AutoScrollTextBox"/>.
+	/// </summary>
+	[Parameter]
+	public string Class { get; set; } = "";
+
+	/// <summary>
+	/// Appends the string in <paramref name="text"/> to the internal text variable. <br/>
+	/// The changes will not be reflected until the component is re-rendered.
+	/// </summary>
+	public void AppendText(string text) => terminalText += text;
+
+	/// <summary>
+	/// Clears the internal text variable by setting it to an empty string. <br/>
+	/// The changes will not be reflected until the component is re-rendered.
+	/// </summary>
+	public void ClearText() => terminalText = "";
+
+	/// <summary>
+	/// Redraws the component and updates the scroll bars, if autoscroll is enabled.
+	/// </summary>
+	public void ReRender() {
+		StateHasChanged();
+		if (autoScrollDown)
+			jsRuntime.InvokeVoidAsync("eval", "document.getElementById('serial-text-output').scrollTop = document.getElementById('serial-text-output').scrollHeight");
+		if (autoScrollRight)
+			jsRuntime.InvokeVoidAsync("eval", "document.getElementById('serial-text-output').scrollLeft = document.getElementById('serial-text-output').scrollWidth");
+	}
+}

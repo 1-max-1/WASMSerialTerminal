@@ -1,0 +1,103 @@
+﻿@*
+This component contains 5 controls corresponding to data bits, stop bits, parity, flow control and baud rate.
+Each of the 5 are bindable parameters. The control starts out as 5 columns, then wraps to 2 columns once the 'small' breakpoint has been reached.
+The enabled state of all 5 controls is bound to another parameter.
+*@
+
+<div class="row row-cols-2 row-cols-sm-5 gy-3">
+	<div class="col">
+		<p class="mb-0"><strong>Data bits</strong></p>
+		<RadzenRadioButtonList TValue="@SerialPortDataBits" @bind-Value="@BoundDataBits" Disabled="@Disabled" Orientation="@Orientation.Vertical">
+			<Items>
+				<RadzenRadioButtonListItem Text="7" Value="@SerialPortDataBits.SEVEN_DATA_BITS" />
+				<RadzenRadioButtonListItem Text="8" Value="@SerialPortDataBits.EIGHT_DATA_BITS" />
+			</Items>
+		</RadzenRadioButtonList>
+	</div>
+
+	<div class="col">
+		<p class="mb-0"><strong>Stop bits</strong></p>
+		<RadzenRadioButtonList TValue="@SerialPortStopBits" @bind-Value="@BoundStopBits" Disabled="@Disabled" Orientation="@Orientation.Vertical">
+			<Items>
+				<RadzenRadioButtonListItem Text="1" Value="@SerialPortStopBits.ONE_STOP_BIT" />
+				<RadzenRadioButtonListItem Text="2" Value="@SerialPortStopBits.TWO_STOP_BITS" />
+			</Items>
+		</RadzenRadioButtonList>
+	</div>
+
+	<div class="col">
+		<p class="mb-0"><strong>Flow control</strong></p>
+		<RadzenRadioButtonList TValue="@SerialPortFlowControl" @bind-Value="@BoundFlowControl" Disabled="@Disabled" Orientation="@Orientation.Vertical">
+			<Items>
+				<RadzenRadioButtonListItem Text="None" Value="@SerialPortFlowControl.FLOW_CONTROL_NONE" />
+				<RadzenRadioButtonListItem Text="Hardware" Value="@SerialPortFlowControl.FLOW_CONTROL_HARDWARE" />
+			</Items>
+		</RadzenRadioButtonList>
+	</div>
+
+	<div class="col">
+		<p class="mb-0"><strong>Parity</strong></p>
+		<RadzenRadioButtonList TValue="@SerialPortParity" @bind-Value="@BoundParity" Disabled="@Disabled" Orientation="@Orientation.Vertical">
+			<Items>
+				<RadzenRadioButtonListItem Text="None" Value="@SerialPortParity.PARITY_NONE" />
+				<RadzenRadioButtonListItem Text="Odd" Value="@SerialPortParity.PARITY_ODD" />
+				<RadzenRadioButtonListItem Text="Even" Value="@SerialPortParity.PARITY_EVEN" />
+			</Items>
+		</RadzenRadioButtonList>
+	</div>
+
+	<div class="col">
+		<p><strong>Baud rate</strong></p>
+		<RadzenNumeric TValue="@uint" Min="1" Max="1000000" @bind-Value="@BoundBaudRate" Disabled="@Disabled" />
+	</div>
+</div>
+
+@code {
+	[Parameter]
+	public SerialPortDataBits DataBits { get; set; }
+	[Parameter]
+	public EventCallback<SerialPortDataBits> DataBitsChanged { get; set; }
+	private SerialPortDataBits BoundDataBits {
+		get => DataBits;
+		set => DataBitsChanged.InvokeAsync(value);
+	}
+
+	[Parameter]
+	public SerialPortFlowControl FlowControl { get; set; }
+	[Parameter]
+	public EventCallback<SerialPortFlowControl> FlowControlChanged { get; set; }
+	private SerialPortFlowControl BoundFlowControl {
+		get => FlowControl;
+		set => FlowControlChanged.InvokeAsync(value);
+	}
+
+	[Parameter]
+	public SerialPortParity Parity { get; set; }
+	[Parameter]
+	public EventCallback<SerialPortParity> ParityChanged { get; set; }
+	private SerialPortParity BoundParity {
+		get => Parity;
+		set => ParityChanged.InvokeAsync(value);
+	}
+
+	[Parameter]
+	public SerialPortStopBits StopBits { get; set; }
+	[Parameter]
+	public EventCallback<SerialPortStopBits> StopBitsChanged { get; set; }
+	private SerialPortStopBits BoundStopBits {
+		get => StopBits;
+		set => StopBitsChanged.InvokeAsync(value);
+	}
+
+	[Parameter]
+	public uint BaudRate { get; set; }
+	[Parameter]
+	public EventCallback<uint> BaudRateChanged { get; set; }
+	private uint BoundBaudRate {
+		get => BaudRate;
+		set => BaudRateChanged.InvokeAsync(value);
+	}
+
+	[Parameter]
+	public bool Disabled { get; set; }
+}

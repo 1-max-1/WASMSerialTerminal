@@ -1,0 +1,111 @@
+﻿@page "/"
+@implements IAsyncDisposable
+@inject IJSRuntime jsRuntime
+@inject ISerialService serialService
+@inject DialogService dialogService
+
+@using Microsoft.AspNetCore.Components.Web
+@using System.Text
+@using WASMSerialTerminal
+
+<div class="container-fluid">
+	<div class="row">
+		<div class="col">
+			<SerialSettingsPanel @bind-DataBits="@dataBits" @bind-FlowControl="@flowControl" @bind-Parity="@parity" @bind-StopBits="@stopBits" @bind-BaudRate="@baudRate" Disabled="@serialService.PortOpen" />
+		</div>
+	</div>
+
+	<hr class="mb-4" />
+
+	<div class="row gy-5 mb-5">
+		<div class="col-lg-6 d-flex flex-column align-items-start" style="min-height: 400px;">
+			<RadzenButton Text="Connect to port" ButtonStyle="@ButtonStyle.Success" Click="@OnConnectButtonClick" Visible="@(!serialService.PortOpen)" class="mb-1" />
+			<RadzenButton Text="Close port" ButtonStyle="@ButtonStyle.Danger" Click="@OnDisconnectButtonClick" Visible="@serialService.PortOpen" class="mb-1" />
+			<AutoScrollTextBox @ref="@autoScrollTextBox" Class="w-100 flex-grow-1" />
+		</div>
+		<div class="col-lg-6">
+			<div class="mb-1">
+				<RadzenButton ButtonStyle="@ButtonStyle.Primary" Click="@OnRefreshGridButtonClick" Icon="autorenew" />
+				<p class="d-inline">Data breakdown (not realtime):</p>
+			</div>
+			<RadzenDataGrid TItem="@SerialByte" Data="@serialData" Style="height: 400px;" AllowColumnReorder="true" AllowColumnResize="true"
+							@ref="@grid" AllowPaging="true" ShowPagingSummary="true" PageSizeOptions="@(new int[] {10, 20, 30, 40, 50})">
+				<Columns>
+					<RadzenDataGridColumn TItem="@SerialByte" Property="DecimalValue" Title="Decimal value" />
+					<RadzenDataGridColumn TItem="@SerialByte" Property="HexValue" Title="Hex value" />
+					<RadzenDataGridColumn TItem="@SerialByte" Property="Character" Title="UTF8 character" />
+				</Columns>
+			</RadzenDataGrid>
+		</div>
+	</div>
+</div>
+
+@* Must be defined even for default dialogs to show *@
+<RadzenDialog />
+
+@code {
+	private RadzenDataGrid<SerialByte>? grid = null;
+	private List<SerialByte> serialData = new();
+
+	private AutoScrollTextBox? autoScrollTextBox;
+
+	// Serial port params
+	private SerialPortDataBits dataBits = SerialPortDataBits.EIGHT_DATA_BITS;
+	private SerialPortFlowControl flowControl = SerialPortFlowControl.FLOW_CONTROL_NONE;
+	private SerialPortParity parity = SerialPortParity.PARITY_NONE;
+	private SerialPortStopBits stopBits = SerialPortStopBits.ONE_STOP_BIT;
+	private uint baudRate = 9600;
+
+	protected override void OnInitialized() {
+		serialService.DataReceived += OnSerialDataReceived;
+		serialService.SerialError += OnSerialError;
+	}
+
+	public async ValueTask DisposeAsync() {
+		serialService.DataReceived -= OnSerialDataReceived;
+		serialService.SerialError -= OnSerialError;
+		await serialService.ClosePort();
+	}
+
+	private async Task OnConnectButtonClick() {
+		try {
+			bool portSelected = await serialService.OpenPortSelectionDialog(baudRate, dataBits, flowControl, parity, stopBits);
+			if (portSelected) {
+				serialData.Clear();
+				await grid!.Reload();
+				autoScrollTextBox!.ClearText();
+			}
+		}
+		catch (SerialSecurityException) {
+			await dialogService.Alert("Permission to access serial port not granted.", "Error");
+		}
+		catch (SerialInitializationException) {
+			await dialogService.Alert("Failed to open serial port. Please try again.", "Error");
+		}
+	}
+
+	private async Task OnDisconnectButtonClick() {
+		await serialService.ClosePort();
+	}
+
+	private void OnSerialError() {
+		StateHasChanged();
+		dialogService.Alert("Something went wrong with the serial port. Was your device disconnected?", "Error");
+	}
+
+	private void OnSerialDataReceived(byte[] data) {
+		autoScrollTextBox!.AppendText(Encoding.UTF8.GetString(data));
+		// Only re-render this control, as opposed to re-rendering the whole page.
+		// This is because rendering the grid is slow and will cause lots of lag if we do it every time we get new data.
+		autoScrollTextBox!.ReRender();
+
+		foreach (byte b in data) {
+			serialData.Add(new SerialByte(b));
+		}
+	}
+
+	private async Task OnRefreshGridButtonClick() {
+		await grid!.Reload();
+		await grid!.LastPage();
+	}
+}
