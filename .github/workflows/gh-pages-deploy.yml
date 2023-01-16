@@ -1,19 +1,38 @@
 name: Deploy to GitHub Pages
 
-# Run workflow on every push to the master branch
 on:
+  # Run workflow on every push to the main branch
   push:
-    branches: [ master ]
-    
+    branches: ["main"]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
 jobs:
-  deploy-to-github-pages:
-    # use ubuntu-latest image to run steps on
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      # uses GitHub's checkout action to checkout code from the master branch
-      - uses: actions/checkout@v2
-      
-      # sets up .NET SDK
+      # Clone
+      - name: Checkout
+        uses: actions/checkout@v3
+        
+      - name: Setup Pages
+        uses: actions/configure-pages@v2
+        
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v1
         with:
@@ -38,8 +57,12 @@ jobs:
       - name: Add .nojekyll file
         run: touch release/wwwroot/.nojekyll
         
-      # Send the published site to Github Pages
-      - name: Commit wwwroot to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
+      # Upload publish folder to github pages
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v1
         with:
-          folder: release/wwwroot
+          path: 'release/wwwroot'
+          
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v1

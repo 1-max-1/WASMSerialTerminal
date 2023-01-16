@@ -24,4 +24,4 @@ If it is not supported, then an error message is displayed. Otherwise, the compo
 
 # Github pages
 This project is currently hosted on github pages [here](https://1-max-1.github.io/WASMSerialTerminal).
-On every push to the `main` branch, a github action builds and publishes the project to the `gh-pages` branch, where github pages gets the site content from.
+On every push to the `main` branch, a github action builds and deploys the project.
