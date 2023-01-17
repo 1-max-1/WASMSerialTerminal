@@ -1,13 +1,14 @@
 ﻿<!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8" />
-        <title>WASM Serial Terminal</title>
-        <!-- If the user has put in extra junk on the URL, clear it and redirect users to the app page. For github pages only. -->
-        <script type="text/javascript">
-            window.location = window.location.split("/").slice(0, 4);
-        </script>
-    </head>
-    <body>
-    </body>
+	<head>
+		<meta charset="utf-8" />
+		<title>WASM Serial Terminal</title>
+		<!-- If the user has put extra junk on the URL, clear it and redirect them to the app page. For github pages first request. -->
+		<!-- Redirects are also handled by App.razor if 404.html isn't reached -->
+		<script type="text/javascript">
+			window.location = window.location.toString().split("/").slice(0, 4).join("/");
+		</script>
+	</head>
+	<body>
+	</body>
 </html>

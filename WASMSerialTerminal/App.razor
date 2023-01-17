@@ -1,4 +1,6 @@
-﻿<Router AppAssembly="@typeof(App).Assembly">
+﻿@inject NavigationManager NavManager
+
+<Router AppAssembly="@typeof(App).Assembly">
 	<Found Context="routeData">
 		@* If the web serial API is supported, then we can render the regular content *@
 		<WebSerialSupportChecker>
@@ -7,9 +9,10 @@
 		</WebSerialSupportChecker>
 	</Found>
 	<NotFound>
-		<PageTitle>Not found</PageTitle>
+		@{ NavManager.NavigateTo("", false, true); }
+		<PageTitle>WASM Serial Terminal</PageTitle>
 		<LayoutView Layout="@typeof(MainLayout)">
-			<p role="alert">Sorry, there's nothing at this address.</p>
+			<p role="alert">Sorry, there's nothing at this address. Redirecting you to the main page...</p>
 		</LayoutView>
 	</NotFound>
 </Router>
