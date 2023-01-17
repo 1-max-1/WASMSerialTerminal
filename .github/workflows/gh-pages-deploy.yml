@@ -41,16 +41,16 @@ jobs:
       # Will install all the packages for the project
       - name: Restore NuGet Packages
         run: dotnet restore WASMSerialTerminal/WASMSerialTerminal.csproj --use-current-runtime
-          
-      # Publishes Blazor project to the release-folder
-      - name: Publish Project
-        run: dotnet publish WASMSerialTerminal/WASMSerialTerminal.csproj -c Release -o release --nologo
         
       # Changes the base-tag in index.html from '/' to 'WASMSerialTerminal' to match GitHub Pages repository subdirectory.
       # This is needed because otherwise Blazor will try to find all of its stuff at the root URL, but our site is not hosted at the root URL.
       # It is hosted at the repo's subdirectory.
       - name: Change base-tag in index.html from / to WASMSerialTerminal
-        run: sed -i 's/<base href="\/" \/>/<base href="\/WASMSerialTerminal\/" \/>/g' release/wwwroot/index.html
+        run: sed -i 's/<base href="\/" \/>/<base href="\/WASMSerialTerminal\/" \/>/g' WASMSerialTerminal/wwwroot/index.html
+      
+      # Publishes Blazor project to the release-folder
+      - name: Publish Project
+        run: dotnet publish WASMSerialTerminal/WASMSerialTerminal.csproj -c Release -o release --nologo
         
       # add .nojekyll file to tell GitHub pages to not treat this as a Jekyll project. (Allow files and folders starting with an underscore)
       # This is needed because Blazor uses underscores in the _framework folder, and without it the project will not function.
