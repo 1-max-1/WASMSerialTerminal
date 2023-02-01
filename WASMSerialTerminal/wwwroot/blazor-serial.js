@@ -47,12 +47,15 @@ window.openPortSelectionDialog = async (serialService, baudRate, bufferSize, dat
 		return 1;
 	}
 	catch (ex) {
-		if (ex.name == "SECURITY_ERR")
+		if (ex.name == "SecurityError")
 			return 2;
-		else if (ex.name == "INVALID_STATE_ERR")
+		else if (ex.name == "InvalidStateError")
 			return 3;
-		else if (ex.name == "NETWORK_ERR")
+		else if (ex.name == "NetworkError")
 			return 4;
+		else if (ex.name == "TypeError")
+			return 5;
+		// Otherwise will be a NotFoundError indicating that the user cancelled the operation
 		return 0;
 	}
 }

@@ -12,6 +12,7 @@ namespace WASMSerialTerminal {
 		/// <exception cref="InvalidOperationException" />
 		/// <exception cref="SerialSecurityException" />
 		/// <exception cref="SerialInitializationException" />
+		/// <exception cref="ArgumentException" />
 		public Task<bool> OpenPortSelectionDialog(uint baudRate, SerialPortDataBits dataBits, SerialPortFlowControl flowControl, SerialPortParity parity, SerialPortStopBits stopBits);
 		
 		/// <summary>
@@ -45,8 +46,7 @@ namespace WASMSerialTerminal {
 			if (PortOpen)
 				throw new InvalidOperationException("Cannot open serial port because a serial port is already open.");
 
-			// Reference to us so the JS code can call back.
-			selfRef = DotNetObjectReference.Create(this);
+			selfRef = DotNetObjectReference.Create(this); // Reference to us so the JS code can call back.
 			string flowControlString = flowControl == SerialPortFlowControl.FLOW_CONTROL_NONE ? "none" : "hardware";
 			string parityString = parity switch {
 				SerialPortParity.PARITY_EVEN => "even",
@@ -64,7 +64,9 @@ namespace WASMSerialTerminal {
 					throw new InvalidOperationException("Cannot open serial port because a serial port is already open.");
 				case 4:
 					throw new SerialInitializationException("Failed to open the serial port");
-				default:
+				case 5:
+					throw new ArgumentException("One or more serial port parameters (baud rate, data bits, flow control, parity, stop bits or buffer size) are not valid! Please check that they conform to the specification at https://wicg.github.io/serial/.");
+				default: // Will be 1
 					PortOpen = true;
 					return true;
 			}

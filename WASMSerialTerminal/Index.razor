@@ -80,7 +80,7 @@
 			await dialogService.Alert("Permission to access serial port not granted.", "Error");
 		}
 		catch (SerialInitializationException) {
-			await dialogService.Alert("Failed to open serial port. Please try again.", "Error");
+			await dialogService.Alert("Failed to open serial port. Please try again. The serial port may already be in use by another process.", "Error");
 		}
 	}
 
