@@ -1,5 +1,6 @@
 ﻿var keepReading = false;
 var reader;
+var writer;
 var closePromise;
 
 async function callOnDataReceived(data, serialService) {
@@ -13,8 +14,9 @@ async function callOnDataReceived(data, serialService) {
 
 async function readUntilClosed(port, serialService) {
 	// If a non-fatal error is encountered (i.e. port.readable still true), we just loop again, get a new reader and continue to read
-	while (port.readable && keepReading) {
+	while (port.readable && port.writable && keepReading) {
 		reader = port.readable.getReader();
+		writer = port.writable.getWriter();
 		try {
 			while (true) {
 				let { value, done } = await reader.read();
@@ -27,6 +29,7 @@ async function readUntilClosed(port, serialService) {
 		}
 		finally {
 			reader.releaseLock();
+			writer.releaseLock();
 		}
 	}
 
@@ -64,4 +67,8 @@ window.closePort = async () => {
 	keepReading = false;
 	reader.cancel(); // Will cause done = true so the while loop will break, and keepreading = false so the function exits
 	await closePromise; // Wait for the loop to break
+}
+
+window.writeData = async (data) => {
+	await writer.write(data);
 }

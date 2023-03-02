@@ -20,10 +20,19 @@ namespace WASMSerialTerminal {
 		/// </summary>
 		public Task ClosePort();
 
+        /// <summary>
+        /// Writes the given data to the serial port. Throws an exception if the port isn't open.
+        /// </summary>
+        /// <param name="data">The bytes to write to the serial port.</param>
+        /// <exception cref="InvalidOperationException" />
+		/// <exception cref="SerialTransmissionException" />
+        public Task WriteData(byte[] data);
+
 		/// <summary>
 		/// Event raised when the serial port receives some data.
 		/// </summary>
 		public event Action<byte[]>? DataReceived;
+
 		/// <summary>
 		/// Event raised when the serial port throws a fatal error. If a fatal error is encountered, the serial port is closed automatically.
 		/// </summary>
@@ -80,7 +89,19 @@ namespace WASMSerialTerminal {
 			PortOpen = false;
 		}
 
-		public event Action<byte[]>? DataReceived;
+        public async Task WriteData(byte[] data) {
+			if (!PortOpen)
+				throw new InvalidOperationException("Cannot write to the serial port because no port has been opened.");
+
+			try {
+				await js.InvokeVoidAsync("writeData", new object[] { data });
+			}
+			catch (JSException ex) {
+				throw new SerialTransmissionException("Failed to write data to serial port: " + ex.Message);
+			}
+		}
+
+        public event Action<byte[]>? DataReceived;
 		[JSInvokable]
 		public void OnDataReceived(byte[] data) {
 			DataReceived?.Invoke(data);

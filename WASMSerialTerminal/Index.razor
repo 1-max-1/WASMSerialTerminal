@@ -17,7 +17,7 @@
 
 	<hr class="mb-4" />
 
-	<div class="row gy-5 mb-5">
+	<div class="row gy-5">
 		<div class="col-lg-6 d-flex flex-column align-items-start" style="min-height: 400px;">
 			<RadzenButton Text="Connect to port" ButtonStyle="@ButtonStyle.Success" Click="@OnConnectButtonClick" Visible="@(!serialService.PortOpen)" class="mb-1" />
 			<RadzenButton Text="Close port" ButtonStyle="@ButtonStyle.Danger" Click="@OnDisconnectButtonClick" Visible="@serialService.PortOpen" class="mb-1" />
@@ -38,6 +38,8 @@
 			</RadzenDataGrid>
 		</div>
 	</div>
+
+	<DataInputBox OnDataToBeSent="@OnSendDataButtonClick" Disabled="@(!serialService.PortOpen)" />
 </div>
 
 @* Must be defined even for default dialogs to show *@
@@ -107,5 +109,15 @@
 	private async Task OnRefreshGridButtonClick() {
 		await grid!.Reload();
 		await grid!.LastPage();
+	}
+
+	// Handles theb utton clicks when sending text or byte data
+	private async Task OnSendDataButtonClick(byte[] data) {
+		try {
+			await serialService.WriteData(data);
+		}
+		catch (SerialTransmissionException ex) {
+			await dialogService.Alert(ex.Message, "Failed to write data");
+		}
 	}
 }

@@ -12,4 +12,11 @@
 	public class SerialInitializationException : Exception {
 		public SerialInitializationException(string message) : base(message) { }
 	}
+
+	/// <summary>
+	/// Exception for when an attempt to send data to a serial port fails.
+	/// </summary>
+	public class SerialTransmissionException : Exception {
+		public SerialTransmissionException(string? message) : base(message) { }
+	}
 }

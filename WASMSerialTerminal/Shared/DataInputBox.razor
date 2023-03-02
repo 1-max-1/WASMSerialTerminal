@@ -1,0 +1,94 @@
+﻿@* This responsive layout component allows the user to input text or indivdual bytes. Sending data to the serial port is not handled.
+   There is some CSS here in the associated razor.CSS file. The extra css handles some autosizing of elements when at certain screen sizes. *@
+
+@using System.Text.RegularExpressions
+@using System.Text
+
+<div class="row my-4 gy-3">
+	<div class="col-lg-6 d-flex">
+		<div class="flex-grow-1 d-flex flex-column">
+			<label for="send-bytes-textbox" class="form-label fw-lighter mb-0">Send bytes</label>
+			@* Cannot use the radzen textbox here because they do not support @bind directives. The bind directives allow us to filter the characters that can be input. *@
+			<input id="send-bytes-textbox" type="text" @bind:event="oninput" @bind:get="currentBytesString" @bind:set="OnBytesInput" class="rz-textbox" placeholder="comma separated, 0-255" size="1" />
+			@if (bytesTextboxHasError) {
+				<p class="text-danger text-nowrap">@bytesTextboxErrorMessage</p>
+			}
+		</div>
+		<RadzenButton Text="Send" ButtonStyle="@ButtonStyle.Info" Click="@SendBytes" Disabled="@Disabled" class="align-self-start ms-2 me-lg-5" style="margin-top: 24px;" />
+	</div>
+	<div class="col-lg-6">
+		<div class="row gx-2 gy-2">
+			<div class="col-xl col-lg-12 col-sm col-12 d-flex flex-column">
+				<label for="send-text-textbox" class="form-label mb-0">Send text</label>
+				<RadzenTextBox id="send-text-textbox" @bind-Value="@currentTextString" size="1" />
+			</div>
+			<div class="col-xl-auto col-lg-4 col-sm-auto col-4 d-flex flex-column" id="encodingSelectorDiv">
+				<label for="encodingSelector" class="form-label mb-0">Encoding</label>
+				<RadzenDropDown Data="@(new string[] { "UTF-8", "ASCII", "UTF-16 (LE)", "UTF-16 (BE)" })" @bind-Value="@currentEncoding" id="encodingSelector" />
+			</div>
+			<div class="col-xl-auto col-lg-4 col-sm-auto col-4 d-flex flex-column" id="lineEndingSelectorDiv">
+				<label for="lineEndingSelector" class="form-label mb-0 text-nowrap">Line ending</label>
+				<RadzenDropDown Data="@(new string[] { "None", "\\r", "\\n", "\\r\\n" })" @bind-Value="@currentLineEnding" id="lineEndingSelector" />
+			</div>
+			<div class="col-xl-auto col-lg-4 col-sm-auto col-4 d-flex flex-column justify-content-end">
+				<RadzenButton Text="Send" ButtonStyle="@ButtonStyle.Info" Click="@SendText" Disabled="@Disabled" />
+			</div>
+		</div>
+	</div>
+</div>
+
+@code {
+	private string currentBytesString = "";
+	private string currentTextString = "";
+	private string currentEncoding = "UTF-8";
+	private string currentLineEnding = "None";
+
+	// true if the user entered an incorrect byte, then this will show the error message label
+	private bool bytesTextboxHasError = false;
+	private string bytesTextboxErrorMessage = "";
+
+	// Only let new characters in if it is in the correct format: numbers separated by commas.
+	private void OnBytesInput(string value) {
+		if (Regex.IsMatch(currentBytesString + value, "^(?:[0-9],?)*$")) {
+			currentBytesString = value;
+		}
+	}
+
+	/// <summary> Event raised when the user clicks either of the send buttons. </summary>
+	[Parameter]
+	public EventCallback<byte[]> OnDataToBeSent { get; set; }
+	[Parameter]
+	public bool Disabled { get; set; }
+
+	private async Task SendBytes() {
+		List<byte> bytes = new();
+		// The string should always be in the correct csv format, as the input box does not allow invalid characters
+		foreach (string number in currentBytesString.Split(',', StringSplitOptions.RemoveEmptyEntries)) {
+			if (!byte.TryParse(number, out byte b)) {
+				bytesTextboxHasError = true;
+				bytesTextboxErrorMessage = $"Incorrect byte value '{number}'!";
+				return;
+			}
+			bytes.Add(b);
+		}
+		bytesTextboxHasError = false;
+		await OnDataToBeSent.InvokeAsync(bytes.ToArray());
+	}
+
+	private async Task SendText() {
+		Encoding encoding = currentEncoding switch {
+			"UTF-8" => Encoding.UTF8,
+			"ASCII" => Encoding.ASCII,
+			"UTF-16 (LE)" => Encoding.Unicode,
+			_ => Encoding.BigEndianUnicode,
+		};
+		string lineEnding = currentLineEnding switch {
+			"\\r" => "\r",
+			"\\n" => "\n",
+			"\\r\\n" => "\r\n",
+			_ => ""
+		};
+		byte[] bytes = encoding.GetBytes(currentTextString + lineEnding);
+		await OnDataToBeSent.InvokeAsync(bytes);
+	}
+}
