@@ -9,11 +9,7 @@
 @using WASMSerialTerminal
 
 <div class="container-fluid">
-	<div class="row">
-		<div class="col">
-			<SerialSettingsPanel @bind-DataBits="@dataBits" @bind-FlowControl="@flowControl" @bind-Parity="@parity" @bind-StopBits="@stopBits" @bind-BaudRate="@baudRate" Disabled="@serialService.PortOpen" />
-		</div>
-	</div>
+	<SerialSettingsPanel @bind-DataBits="@dataBits" @bind-FlowControl="@flowControl" @bind-Parity="@parity" @bind-StopBits="@stopBits" @bind-BaudRate="@baudRate" @bind-TextEncoding="@textEncoding" Disabled="@serialService.PortOpen" />
 
 	<hr class="mb-4" />
 
@@ -33,13 +29,13 @@
 				<Columns>
 					<RadzenDataGridColumn TItem="@SerialByte" Property="DecimalValue" Title="Decimal value" />
 					<RadzenDataGridColumn TItem="@SerialByte" Property="HexValue" Title="Hex value" />
-					<RadzenDataGridColumn TItem="@SerialByte" Property="Character" Title="UTF8 character" />
+					<RadzenDataGridColumn TItem="@SerialByte" Property="Character" Title="ASCII character" />
 				</Columns>
 			</RadzenDataGrid>
 		</div>
 	</div>
 
-	<DataInputBox OnDataToBeSent="@OnSendDataButtonClick" Disabled="@(!serialService.PortOpen)" />
+	<DataInputBox OnDataToBeSent="@OnSendDataButtonClick" Disabled="@(!serialService.PortOpen)" TextEncoding="@textEncoding" />
 </div>
 
 @* Must be defined even for default dialogs to show *@
@@ -57,6 +53,7 @@
 	private SerialPortParity parity = SerialPortParity.PARITY_NONE;
 	private SerialPortStopBits stopBits = SerialPortStopBits.ONE_STOP_BIT;
 	private uint baudRate = 9600;
+	private Encoding textEncoding = Encoding.UTF8;
 
 	protected override void OnInitialized() {
 		serialService.DataReceived += OnSerialDataReceived;
@@ -96,14 +93,13 @@
 	}
 
 	private void OnSerialDataReceived(byte[] data) {
-		autoScrollTextBox!.AppendText(Encoding.UTF8.GetString(data));
+		foreach (byte b in data) {
+			serialData.Add(new SerialByte(b)); // For the data breakdown grid
+		}
+
 		// Only re-render this control, as opposed to re-rendering the whole page.
 		// This is because rendering the grid is slow and will cause lots of lag if we do it every time we get new data.
-		autoScrollTextBox!.ReRender();
-
-		foreach (byte b in data) {
-			serialData.Add(new SerialByte(b));
-		}
+		autoScrollTextBox!.SetTextAndRedraw(textEncoding.GetString(serialData.ConvertAll(sb => sb.DecimalValue).ToArray()));
 	}
 
 	private async Task OnRefreshGridButtonClick() {
