@@ -13,10 +13,27 @@
 
 	<hr class="mb-4" />
 
+	<div style="display:flex;">
+		<div style="margin:1em; flex:auto;">
+			<RadzenDropDown @bind-Value=@chosenPairedSerialPort Data=@availablePairedSerialPorts Style="width: 100%;" Placeholder="Choose an already paired device..." />
+		</div>
+
+		<div style="margin:1em; flex:initial;">
+			<RadzenButton Text="Connect to paired port" ButtonStyle="@ButtonStyle.Success" Click="@OnConnectToPairedPortButtonClick" Visible="@(!serialService.PortOpen)" class="mb-1" Disabled=@(chosenPairedSerialPort is null) />
+		</div>
+
+		<div style="margin:1em; flex:initial;">
+			<RadzenButton Text="Connect to new port" ButtonStyle="@ButtonStyle.Success" Click="@OnConnectButtonClick" Visible="@(!serialService.PortOpen)" class="mb-1" />
+			<RadzenButton Text="Close port" ButtonStyle="@ButtonStyle.Danger" Click="@OnDisconnectButtonClick" Visible="@serialService.PortOpen" class="mb-1" />
+		</div>
+	</div>
+
+	<hr class="mb-4" />
+
 	<div class="row gy-5">
 		<div class="col-lg-6 d-flex flex-column align-items-start">
-			<RadzenButton Text="Connect to port" ButtonStyle="@ButtonStyle.Success" Click="@OnConnectButtonClick" Visible="@(!serialService.PortOpen)" class="mb-1" />
-			<RadzenButton Text="Close port" ButtonStyle="@ButtonStyle.Danger" Click="@OnDisconnectButtonClick" Visible="@serialService.PortOpen" class="mb-1" />
+			
+			
 			<AutoScrollTextBox Style="height: 425px; width: 100%;" @ref="@autoScrollTextBox" OnClearDataButtonClicked="@OnClearDataButtonClicked" />
 		</div>
 		<div class="col-lg-6">
@@ -47,6 +64,9 @@
 
 	private AutoScrollTextBox? autoScrollTextBox;
 
+	private IEnumerable<SerialPortDescription>? availablePairedSerialPorts;
+	private SerialPortDescription? chosenPairedSerialPort;
+
 	// Serial port params
 	private SerialPortDataBits dataBits = SerialPortDataBits.EIGHT_DATA_BITS;
 	private SerialPortFlowControl flowControl = SerialPortFlowControl.FLOW_CONTROL_NONE;
@@ -59,11 +79,21 @@
 		serialService.DataReceived += OnSerialDataReceived;
 		serialService.SerialError += OnSerialError;
 	}
+	protected override async Task OnInitializedAsync()
+	{
+		await base.OnInitializedAsync();
+		await UpdateAvailablePairedSerialPorts();
+	}
 
 	public async ValueTask DisposeAsync() {
 		serialService.DataReceived -= OnSerialDataReceived;
 		serialService.SerialError -= OnSerialError;
 		await serialService.ClosePort();
+	}
+
+	private async Task UpdateAvailablePairedSerialPorts()
+	{
+		availablePairedSerialPorts = await serialService.GetPairedSerialPortsDescriptions();
 	}
 
 	private async Task OnConnectButtonClick() {
@@ -81,7 +111,35 @@
 		catch (SerialInitializationException) {
 			await dialogService.Alert("Failed to open serial port. Please try again. The serial port may already be in use by another process.", "Error");
 		}
+
+		await UpdateAvailablePairedSerialPorts();
 	}
+
+	private async Task OnConnectToPairedPortButtonClick()
+	{
+		try
+		{
+			if (chosenPairedSerialPort.HasValue)
+			{
+				bool portSelected = await serialService.OpenPairedSerialPort(chosenPairedSerialPort.Value, baudRate, dataBits, flowControl, parity, stopBits);
+				if (portSelected)
+				{
+					serialData.Clear();
+					await grid!.Reload();
+					autoScrollTextBox!.ClearText();
+				}
+			}
+		}
+		catch (SerialSecurityException)
+		{
+			await dialogService.Alert("Permission to access serial port not granted.", "Error");
+		}
+		catch (SerialInitializationException)
+		{
+			await dialogService.Alert("Failed to open serial port. Please try again. The serial port may already be in use by another process.", "Error");
+		}
+	}
+	
 
 	private async Task OnDisconnectButtonClick() {
 		await serialService.ClosePort();

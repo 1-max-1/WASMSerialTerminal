@@ -1,4 +1,5 @@
 ﻿using Microsoft.JSInterop;
+using System.Text.Json;
 
 namespace WASMSerialTerminal {
 	internal interface ISerialService {
@@ -14,7 +15,52 @@ namespace WASMSerialTerminal {
 		/// <exception cref="SerialInitializationException" />
 		/// <exception cref="ArgumentException" />
 		public Task<bool> OpenPortSelectionDialog(uint baudRate, SerialPortDataBits dataBits, SerialPortFlowControl flowControl, SerialPortParity parity, SerialPortStopBits stopBits);
-		
+
+		/// <summary>
+		/// Gets the number of already paired serial ports. <br/>
+		/// Once a serial port has been open using OpenPortSelectionDialog it becomes "Paired" <br/>
+		/// Users can open paired serial ports without prompting the user for permissions <br/>
+		/// Disconnected devices will be ignored
+		/// </summary>
+		/// <returns>The number of already paired serial ports</returns>
+		public Task<int> GetNumberOfPairedSerialPorts();
+
+		/// <summary>
+		/// Asks the browser for a list of paired serial devices. <br/>
+		/// Only currently connected devices are considered <br/>
+		/// </summary>
+		/// <returns>An array of SerialPortDescription</returns>
+		public Task<IEnumerable<SerialPortDescription>> GetPairedSerialPortsDescriptions();
+
+		/// <summary>
+		/// Connects to an already paired serial port. <br/>
+		/// This will not trigger a user prompt
+		/// </summary>
+		/// <param name="serialPortIndex">Choose what port to connect to by giving its index in the GetPairedSerialPortsDescriptions() array</param>
+		/// <returns><see langword="true"/> if the connection is successfull.</returns>
+		/// <remarks>Will throw <see cref="InvalidOperationException"/> if a port is already open.</remarks>
+		/// <exception cref="InvalidOperationException" />
+		/// <exception cref="SerialSecurityException" />
+		/// <exception cref="SerialInitializationException" />
+		/// <exception cref="ArgumentException" />
+		/// <exception cref="IndexOutOfRangeException" />
+		public Task<bool> OpenPairedSerialPort(int serialPortIndex, uint baudRate, SerialPortDataBits dataBits, SerialPortFlowControl flowControl, SerialPortParity parity, SerialPortStopBits stopBits);
+
+		/// <summary>
+		/// Connects to an already paired serial port. <br/>
+		/// This will not trigger a user prompt
+		/// </summary>
+		/// <param name="serialPortIndex">Choose what port to connect to by giving its description</param>
+		/// <returns><see langword="true"/> if the connection is successfull.</returns>
+		/// <remarks>Will throw <see cref="InvalidOperationException"/> if a port is already open.</remarks>
+		/// <exception cref="InvalidOperationException" />
+		/// <exception cref="SerialSecurityException" />
+		/// <exception cref="SerialInitializationException" />
+		/// <exception cref="ArgumentException" />
+		/// <exception cref="SerialPortUnavailableException" />
+		public Task<bool> OpenPairedSerialPort(SerialPortDescription serialPortDescription, uint baudRate, SerialPortDataBits dataBits, SerialPortFlowControl flowControl, SerialPortParity parity, SerialPortStopBits stopBits);
+
+
 		/// <summary>
 		/// Closes the serial port and stops receiving data. Does nothing if no ports are currently open.
 		/// </summary>
@@ -39,6 +85,27 @@ namespace WASMSerialTerminal {
 		public event Action? SerialError;
 
 		public bool PortOpen { get; }
+	}
+
+	[Serializable]
+	internal struct SerialPortDescription
+	{
+		// These properties must be spelled exactly like this or the serializer will fail to detect them
+		public int usbProductId { get; set; }
+		public int usbVendorId { get; set; }
+
+		public override string ToString()
+		{
+			return $"USB Product ID: {usbProductId}, USB Vendor ID: {usbVendorId}";
+		}
+	}
+
+	internal class SerialPortUnavailableException : Exception 
+	{ 
+		public SerialPortUnavailableException(string Message) : base(Message)
+		{
+			
+		}
 	}
 
 	internal class SerialService : ISerialService {
@@ -80,6 +147,92 @@ namespace WASMSerialTerminal {
 					return true;
 			}
 		}
+
+        public async Task<int> GetNumberOfPairedSerialPorts()
+		{
+			return await js.InvokeAsync<int>("getNumberOfPairedSerialPorts");
+		}
+
+        public async Task<IEnumerable<SerialPortDescription>> GetPairedSerialPortsDescriptions()
+		{
+			string jsonObject = await js.InvokeAsync<string>("getPairedSerialPortsDescriptions");
+			var listOfSerialPorts = JsonSerializer.Deserialize<IEnumerable<SerialPortDescription>>(jsonObject);
+			if (listOfSerialPorts is null)
+				return new SerialPortDescription[0];
+
+			return listOfSerialPorts;
+        }
+
+		public async Task<bool> OpenPairedSerialPort(int serialPortIndex, uint baudRate, SerialPortDataBits dataBits, SerialPortFlowControl flowControl, SerialPortParity parity, SerialPortStopBits stopBits)
+		{
+			if (PortOpen)
+				throw new InvalidOperationException("Cannot open serial port because a serial port is already open.");
+
+			selfRef = DotNetObjectReference.Create(this); // Reference to us so the JS code can call back.
+			string flowControlString = flowControl == SerialPortFlowControl.FLOW_CONTROL_NONE ? "none" : "hardware";
+			string parityString = parity switch
+			{
+				SerialPortParity.PARITY_EVEN => "even",
+				SerialPortParity.PARITY_ODD => "odd",
+				_ => "none"
+			};
+			int operationStatus = await js.InvokeAsync<int>("openPairedSerialPort", serialPortIndex, selfRef, baudRate, 512, (int)dataBits, flowControlString, parityString, (int)stopBits);
+
+			switch (operationStatus)
+			{
+				case 0:
+					return false;
+				case 2:
+					throw new SerialSecurityException("Insufficient permissions for accessing serial ports.");
+				case 3:
+					throw new InvalidOperationException("Cannot open serial port because a serial port is already open.");
+				case 4:
+					throw new SerialInitializationException("Failed to open the serial port");
+				case 5:
+					throw new ArgumentException("One or more serial port parameters (baud rate, data bits, flow control, parity, stop bits or buffer size) are not valid! Please check that they conform to the specification at https://wicg.github.io/serial/.");
+				case 6:
+					throw new IndexOutOfRangeException("The provided serial port index is outside the bounds of the paired ports array.");
+				default: // Will be 1
+					PortOpen = true;
+					return true;
+			}
+		}
+
+		public async Task<bool> OpenPairedSerialPort(SerialPortDescription serialPortDescription, uint baudRate, SerialPortDataBits dataBits, SerialPortFlowControl flowControl, SerialPortParity parity, SerialPortStopBits stopBits)
+		{
+			if (PortOpen)
+				throw new InvalidOperationException("Cannot open serial port because a serial port is already open.");
+
+			selfRef = DotNetObjectReference.Create(this); // Reference to us so the JS code can call back.
+			string flowControlString = flowControl == SerialPortFlowControl.FLOW_CONTROL_NONE ? "none" : "hardware";
+			string parityString = parity switch
+			{
+				SerialPortParity.PARITY_EVEN => "even",
+				SerialPortParity.PARITY_ODD => "odd",
+				_ => "none"
+			};
+			int operationStatus = await js.InvokeAsync<int>("openPairedSerialPortByDescription", serialPortDescription.usbProductId, serialPortDescription.usbVendorId, selfRef, baudRate, 512, (int)dataBits, flowControlString, parityString, (int)stopBits);
+
+			switch (operationStatus)
+			{
+				case 0:
+					return false;
+				case 2:
+					throw new SerialSecurityException("Insufficient permissions for accessing serial ports.");
+				case 3:
+					throw new InvalidOperationException("Cannot open serial port because a serial port is already open.");
+				case 4:
+					throw new SerialInitializationException("Failed to open the serial port");
+				case 5:
+					throw new ArgumentException("One or more serial port parameters (baud rate, data bits, flow control, parity, stop bits or buffer size) are not valid! Please check that they conform to the specification at https://wicg.github.io/serial/.");
+				case 7:
+					throw new SerialPortUnavailableException("The provided serial port could not be found. This can mean the user revoked access or the device is not currently connected.");
+				default: // Will be 1
+					PortOpen = true;
+					return true;
+			}
+		}
+
 
 		public async Task ClosePort() {
 			if (!PortOpen) return;
