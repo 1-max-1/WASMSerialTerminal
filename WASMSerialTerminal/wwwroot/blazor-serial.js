@@ -95,7 +95,7 @@ window.openPairedSerialPortByDescription = async (usbProductId, usbVendorId, ser
 		const pairedPorts = await navigator.serial.getPorts();
 		var port = pairedPorts.find(function (port) {
 			let info = port.getInfo();
-			return info.usbVendorId = usbVendorId && info.usbProductId == usbProductId;
+			return info.usbVendorId == usbVendorId && info.usbProductId == usbProductId;
 		});
 
 		if (port === undefined)
