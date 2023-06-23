@@ -1,4 +1,5 @@
 ﻿using Microsoft.JSInterop;
+using System.Net.Http.Json;
 
 namespace WASMSerialTerminal {
 	internal interface ISerialService {
@@ -20,13 +21,16 @@ namespace WASMSerialTerminal {
 		/// </summary>
 		public Task ClosePort();
 
-        /// <summary>
-        /// Writes the given data to the serial port. Throws an exception if the port isn't open.
-        /// </summary>
-        /// <param name="data">The bytes to write to the serial port.</param>
-        /// <exception cref="InvalidOperationException" />
+		/// <summary>
+		/// Writes the given data to the serial port. Throws an exception if the port isn't open.
+		/// </summary>
+		/// <param name="data">The bytes to write to the serial port.</param>
+		/// <exception cref="InvalidOperationException" />
 		/// <exception cref="SerialTransmissionException" />
-        public Task WriteData(byte[] data);
+		public Task WriteData(byte[] data);
+
+		/// <summary> Grabs the device ID's from the JSON file and stores them in memory. Call this method during app initialization. </summary>
+		public Task InitializeDevices();
 
 		/// <summary>
 		/// Event raised when the serial port receives some data.
@@ -39,16 +43,37 @@ namespace WASMSerialTerminal {
 		public event Action? SerialError;
 
 		public bool PortOpen { get; }
+
+		/// <summary>
+		/// Once the serial port is connected, this property will be populated with the name of the USB device. <br/>
+		/// If the name cannot be identified or the port is not open, this prperty will be <see langword="null"/>.
+		/// </summary>
+		public string? DeviceName { get; }
 	}
 
 	internal class SerialService : ISerialService {
 		private readonly IJSRuntime js;
 		private DotNetObjectReference<SerialService>? selfRef;
+		private readonly HttpClient httpClient;
+		// Maps vendor ID's to another dictionary which maps usb ID's to device names (for the vendor)
+		private readonly Dictionary<string, Dictionary<string, string>> vendors = new();
 
-		public bool PortOpen { get; private set; }
+		public bool PortOpen { get; private set; } = false;
+		public string? DeviceName { get; private set; } = null;
 
-		public SerialService(IJSRuntime js) {
+		public SerialService(IJSRuntime js, HttpClient httpClient) {
 			this.js = js;
+			this.httpClient = httpClient;
+		}
+
+		public async Task InitializeDevices() {
+			USBVendorList vendorList = (await httpClient.GetFromJsonAsync<USBVendorList>("devices.json"))!;
+			foreach (USBVendor vendor in vendorList.Vendors) {
+				vendors[vendor.ID] = new();
+				foreach (USBDevice device in vendor.Devices) {
+					vendors[vendor.ID][device.ID] = device.Name;
+				}
+			}
 		}
 
 		public async Task<bool> OpenPortSelectionDialog(uint baudRate, SerialPortDataBits dataBits, SerialPortFlowControl flowControl, SerialPortParity parity, SerialPortStopBits stopBits) {
@@ -87,9 +112,10 @@ namespace WASMSerialTerminal {
 			await js.InvokeVoidAsync("closePort");
 			selfRef!.Dispose();
 			PortOpen = false;
+			DeviceName = null;
 		}
 
-        public async Task WriteData(byte[] data) {
+		public async Task WriteData(byte[] data) {
 			if (!PortOpen)
 				throw new InvalidOperationException("Cannot write to the serial port because no port has been opened.");
 
@@ -101,7 +127,7 @@ namespace WASMSerialTerminal {
 			}
 		}
 
-        public event Action<byte[]>? DataReceived;
+		public event Action<byte[]>? DataReceived;
 		[JSInvokable]
 		public void OnDataReceived(byte[] data) {
 			DataReceived?.Invoke(data);
@@ -112,7 +138,21 @@ namespace WASMSerialTerminal {
 		public void OnSerialError() {
 			selfRef!.Dispose();
 			PortOpen = false;
+			DeviceName = null;
 			SerialError?.Invoke();
+		}
+
+		[JSInvokable]
+		public void OnDeviceInfoReceived(ushort? vendorID, ushort? deviceID) {
+			if (vendorID == null || deviceID == null)
+				return;
+
+			try {
+				DeviceName = vendors[vendorID.Value.ToString("X4")][deviceID.Value.ToString("X4")];
+			}
+			catch (KeyNotFoundException) {
+				// Failed to identify the device, leave name as null
+			}
 		}
 	}
 }

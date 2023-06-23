@@ -3,6 +3,7 @@
 @inject IJSRuntime jsRuntime
 @inject ISerialService serialService
 @inject DialogService dialogService
+@*@inject IDeviceIDService deviceIDService*@
 
 @using Microsoft.AspNetCore.Components.Web
 @using System.Text
@@ -15,8 +16,11 @@
 
 	<div class="row gy-5">
 		<div class="col-lg-6 d-flex flex-column align-items-start">
-			<RadzenButton Text="Connect to port" ButtonStyle="@ButtonStyle.Success" Click="@OnConnectButtonClick" Visible="@(!serialService.PortOpen)" class="mb-1" />
-			<RadzenButton Text="Close port" ButtonStyle="@ButtonStyle.Danger" Click="@OnDisconnectButtonClick" Visible="@serialService.PortOpen" class="mb-1" />
+			<div class="mb-1">
+				<RadzenButton Text="Connect to port" ButtonStyle="@ButtonStyle.Success" Click="@OnConnectButtonClick" Visible="@(!serialService.PortOpen)" class="mb-1" />
+				<RadzenButton Text="Close port" ButtonStyle="@ButtonStyle.Danger" Click="@OnDisconnectButtonClick" Visible="@serialService.PortOpen" class="mb-1" />
+				<p class="d-inline text-nowrap ms-2">@connectionStatusText<b>@connectionStatusBoldText</b></p>
+			</div>
 			<AutoScrollTextBox Style="height: 425px; width: 100%;" @ref="@autoScrollTextBox" OnClearDataButtonClicked="@OnClearDataButtonClicked" />
 		</div>
 		<div class="col-lg-6">
@@ -25,7 +29,7 @@
 				<p class="d-inline text-nowrap">Data breakdown (not realtime):</p>
 			</div>
 			<RadzenDataGrid TItem="@SerialByte" Data="@serialData" Style="height: 400px;" AllowColumnReorder="true" AllowColumnResize="true"
-							@ref="@grid" AllowPaging="true" ShowPagingSummary="true" PageSizeOptions="@(new int[] {10, 20, 30, 40, 50})">
+				@ref="@grid" AllowPaging="true" ShowPagingSummary="true" PageSizeOptions="@(new int[] {10, 20, 30, 40, 50})">
 				<Columns>
 					<RadzenDataGridColumn TItem="@SerialByte" Property="DecimalValue" Title="Decimal value" />
 					<RadzenDataGridColumn TItem="@SerialByte" Property="HexValue" Title="Hex value" />
@@ -55,6 +59,9 @@
 	private uint baudRate = 9600;
 	private Encoding textEncoding = Encoding.UTF8;
 
+	private string connectionStatusText = "(Disconnected)";
+	private string connectionStatusBoldText = "";
+
 	protected override void OnInitialized() {
 		serialService.DataReceived += OnSerialDataReceived;
 		serialService.SerialError += OnSerialError;
@@ -73,6 +80,8 @@
 				serialData.Clear();
 				await grid!.Reload();
 				autoScrollTextBox!.ClearText();
+				connectionStatusText = "Connected to: ";
+				connectionStatusBoldText = serialService.DeviceName == null ? "Unknown device" : serialService.DeviceName;
 			}
 		}
 		catch (SerialSecurityException) {
@@ -85,9 +94,13 @@
 
 	private async Task OnDisconnectButtonClick() {
 		await serialService.ClosePort();
+		connectionStatusText = "(Disconnected)";
+		connectionStatusBoldText = "";
 	}
 
 	private void OnSerialError() {
+		connectionStatusText = "(Disconnected)";
+		connectionStatusBoldText = "";
 		StateHasChanged();
 		dialogService.Alert("Something went wrong with the serial port. Was your device disconnected?", "Error");
 	}

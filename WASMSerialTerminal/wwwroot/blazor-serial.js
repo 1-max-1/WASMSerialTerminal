@@ -12,6 +12,15 @@ async function callOnDataReceived(data, serialService) {
 	}
 }
 
+async function callOnDeviceInfoReceived(deviceInfo, serialService) {
+	try {
+		await serialService.invokeMethodAsync("OnDeviceInfoReceived", deviceInfo.usbVendorId, deviceInfo.usbProductId);
+	}
+	catch (ex) {
+		console.log("Error calling .NET method OnDeviceInfoReceived: " + ex.message);
+	}
+}
+
 async function readUntilClosed(port, serialService) {
 	// If a non-fatal error is encountered (i.e. port.readable still true), we just loop again, get a new reader and continue to read
 	while (port.readable && port.writable && keepReading) {
@@ -45,6 +54,7 @@ window.openPortSelectionDialog = async (serialService, baudRate, bufferSize, dat
 		// C# code will detect if navigator.serial is not supported - we want to write as little JS as possible
 		let port = await navigator.serial.requestPort();
 		await port.open({ baudRate: baudRate, bufferSize: bufferSize, dataBits: dataBits, flowControl: flowControl, parity: parity, stopBits: stopBits });
+		await callOnDeviceInfoReceived(port.getInfo(), serialService);
 		keepReading = true;
 		closePromise = readUntilClosed(port, serialService);
 		return 1;

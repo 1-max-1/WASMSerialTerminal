@@ -6,7 +6,14 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-builder.Services.AddSingleton<ISerialService, SerialService>();
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+builder.Services.AddScoped<ISerialService, SerialService>();
 builder.Services.AddScoped<Radzen.DialogService>();
 
-await builder.Build().RunAsync();
+WebAssemblyHost host = builder.Build();
+
+// Load USB devices from JSON file
+var serialService = host.Services.GetRequiredService<ISerialService>();
+await serialService.InitializeDevices();
+
+await host.RunAsync();
