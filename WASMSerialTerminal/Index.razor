@@ -3,22 +3,21 @@
 @inject IJSRuntime jsRuntime
 @inject ISerialService serialService
 @inject DialogService dialogService
-@*@inject IDeviceIDService deviceIDService*@
 
 @using Microsoft.AspNetCore.Components.Web
 @using System.Text
 @using WASMSerialTerminal
 
 <div class="container-fluid">
-	<SerialSettingsPanel @bind-DataBits="@dataBits" @bind-FlowControl="@flowControl" @bind-Parity="@parity" @bind-StopBits="@stopBits" @bind-BaudRate="@baudRate" @bind-TextEncoding="@textEncoding" Disabled="@serialService.PortOpen" />
+	<SerialSettingsPanel @bind-DataBits="@dataBits" @bind-FlowControl="@flowControl" @bind-Parity="@parity" @bind-StopBits="@stopBits" @bind-BaudRate="@baudRate" @bind-TextEncoding="@textEncoding" Disabled="@(@serialService.PortOpen || isChangingConnectionState)" />
 
 	<hr class="mb-4" />
 
 	<div class="row gy-5">
 		<div class="col-lg-6 d-flex flex-column align-items-start">
 			<div class="mb-1">
-				<RadzenButton Text="Connect to port" ButtonStyle="@ButtonStyle.Success" Click="@OnConnectButtonClick" Visible="@(!serialService.PortOpen)" class="mb-1" />
-				<RadzenButton Text="Close port" ButtonStyle="@ButtonStyle.Danger" Click="@OnDisconnectButtonClick" Visible="@serialService.PortOpen" class="mb-1" />
+				<RadzenButton Text="Connect to port" ButtonStyle="@ButtonStyle.Success" Click="@OnConnectButtonClick" Visible="@(!serialService.PortOpen)" IsBusy="@isChangingConnectionState" BusyText="Connecting..." class="mb-1" />
+				<RadzenButton Text="Close port" ButtonStyle="@ButtonStyle.Danger" Click="@OnDisconnectButtonClick" Visible="@serialService.PortOpen" IsBusy="@isChangingConnectionState" BusyText="Disconnecting..." class="mb-1" />
 				<p class="d-inline text-nowrap ms-2">@connectionStatusText<b>@connectionStatusBoldText</b></p>
 			</div>
 			<AutoScrollTextBox Style="height: 425px; width: 100%;" @ref="@autoScrollTextBox" OnClearDataButtonClicked="@OnClearDataButtonClicked" />
@@ -39,7 +38,7 @@
 		</div>
 	</div>
 
-	<DataInputBox OnDataToBeSent="@OnSendDataButtonClick" Disabled="@(!serialService.PortOpen)" TextEncoding="@textEncoding" />
+	<DataInputBox OnDataToBeSent="@OnSendDataButtonClick" Disabled="@(!serialService.PortOpen || isChangingConnectionState)" TextEncoding="@textEncoding" />
 </div>
 
 @* Must be defined even for default dialogs to show *@
@@ -61,6 +60,7 @@
 
 	private string connectionStatusText = "(Disconnected)";
 	private string connectionStatusBoldText = "";
+	private bool isChangingConnectionState = false;
 
 	protected override void OnInitialized() {
 		serialService.DataReceived += OnSerialDataReceived;
@@ -74,8 +74,11 @@
 	}
 
 	private async Task OnConnectButtonClick() {
+		isChangingConnectionState = true;
+
 		try {
 			bool portSelected = await serialService.OpenPortSelectionDialog(baudRate, dataBits, flowControl, parity, stopBits);
+			isChangingConnectionState = false;
 			if (portSelected) {
 				serialData.Clear();
 				await grid!.Reload();
@@ -93,7 +96,9 @@
 	}
 
 	private async Task OnDisconnectButtonClick() {
+		isChangingConnectionState = true;
 		await serialService.ClosePort();
+		isChangingConnectionState = false;
 		connectionStatusText = "(Disconnected)";
 		connectionStatusBoldText = "";
 	}
