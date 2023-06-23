@@ -1,5 +1,6 @@
 ﻿var keepReading = false;
 var reader;
+var writer;
 var closePromise;
 
 async function callOnDataReceived(data, serialService) {
@@ -11,10 +12,20 @@ async function callOnDataReceived(data, serialService) {
 	}
 }
 
+async function callOnDeviceInfoReceived(deviceInfo, serialService) {
+	try {
+		await serialService.invokeMethodAsync("OnDeviceInfoReceived", deviceInfo.usbVendorId, deviceInfo.usbProductId);
+	}
+	catch (ex) {
+		console.log("Error calling .NET method OnDeviceInfoReceived: " + ex.message);
+	}
+}
+
 async function readUntilClosed(port, serialService) {
 	// If a non-fatal error is encountered (i.e. port.readable still true), we just loop again, get a new reader and continue to read
-	while (port.readable && keepReading) {
+	while (port.readable && port.writable && keepReading) {
 		reader = port.readable.getReader();
+		writer = port.writable.getWriter();
 		try {
 			while (true) {
 				let { value, done } = await reader.read();
@@ -27,6 +38,7 @@ async function readUntilClosed(port, serialService) {
 		}
 		finally {
 			reader.releaseLock();
+			writer.releaseLock();
 		}
 	}
 
@@ -42,17 +54,21 @@ window.openPortSelectionDialog = async (serialService, baudRate, bufferSize, dat
 		// C# code will detect if navigator.serial is not supported - we want to write as little JS as possible
 		let port = await navigator.serial.requestPort();
 		await port.open({ baudRate: baudRate, bufferSize: bufferSize, dataBits: dataBits, flowControl: flowControl, parity: parity, stopBits: stopBits });
+		await callOnDeviceInfoReceived(port.getInfo(), serialService);
 		keepReading = true;
 		closePromise = readUntilClosed(port, serialService);
 		return 1;
 	}
 	catch (ex) {
-		if (ex.name == "SECURITY_ERR")
+		if (ex.name == "SecurityError")
 			return 2;
-		else if (ex.name == "INVALID_STATE_ERR")
+		else if (ex.name == "InvalidStateError")
 			return 3;
-		else if (ex.name == "NETWORK_ERR")
+		else if (ex.name == "NetworkError")
 			return 4;
+		else if (ex.name == "TypeError")
+			return 5;
+		// Otherwise will be a NotFoundError indicating that the user cancelled the operation
 		return 0;
 	}
 }
@@ -61,4 +77,8 @@ window.closePort = async () => {
 	keepReading = false;
 	reader.cancel(); // Will cause done = true so the while loop will break, and keepreading = false so the function exits
 	await closePromise; // Wait for the loop to break
+}
+
+window.writeData = async (data) => {
+	await writer.write(data);
 }

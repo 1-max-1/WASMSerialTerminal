@@ -4,7 +4,10 @@ Each of the 5 are bindable parameters. The control starts out as 5 columns, then
 The enabled state of all 5 controls is bound to another parameter.
 *@
 
-<div class="row row-cols-2 row-cols-sm-5 gy-3">
+@using System.Text
+@using System.Collections.Immutable
+
+<div class="row row-cols-2 row-cols-sm-3 row-cols-md-6 gy-3">
 	<div class="col">
 		<p class="mb-0"><strong>Data bits</strong></p>
 		<RadzenRadioButtonList TValue="@SerialPortDataBits" @bind-Value="@BoundDataBits" Disabled="@Disabled" Orientation="@Orientation.Vertical">
@@ -48,7 +51,12 @@ The enabled state of all 5 controls is bound to another parameter.
 
 	<div class="col">
 		<p><strong>Baud rate</strong></p>
-		<RadzenNumeric TValue="@uint" Min="1" Max="1000000" @bind-Value="@BoundBaudRate" Disabled="@Disabled" />
+		<RadzenNumeric TValue="@uint" Min="1" Max="1000000" @bind-Value="@BoundBaudRate" Disabled="@Disabled" Style="max-width: 150px;"/>
+	</div>
+
+	<div class="col">
+		<p class="text-nowrap"><strong>Text encoding</strong></p>
+		<RadzenDropDown Data="@(new string[] { "UTF-8", "ASCII", "UTF-16 (LE)", "UTF-16 (BE)" })" @bind-Value="@BoundTextEncoding" TValue="@string" Style="width: 130px;" />
 	</div>
 </div>
 
@@ -99,5 +107,22 @@ The enabled state of all 5 controls is bound to another parameter.
 	}
 
 	[Parameter]
+	public Encoding TextEncoding { get; set; } = Encoding.UTF8;
+	[Parameter]
+	public EventCallback<Encoding> TextEncodingChanged { get; set; }
+	private string BoundTextEncoding {
+		get => encodingNames.GetValueOrDefault(TextEncoding, TextEncoding.EncodingName);
+		set => TextEncodingChanged.InvokeAsync(EncodingNameToEncodingObject(value));
+	}
+
+	[Parameter]
 	public bool Disabled { get; set; }
+
+	// Maps string names to encoding objects
+	private ImmutableDictionary<Encoding, string> encodingNames = (new KeyValuePair<Encoding, string>[] { new(Encoding.UTF8, "UTF-8"), new(Encoding.ASCII, "ASCII"), new(Encoding.Unicode, "UTF-16 (LE)"), new(Encoding.BigEndianUnicode, "UTF-16 (BE)") }).ToImmutableDictionary();
+	private Encoding EncodingNameToEncodingObject(string name) {		
+		if (!encodingNames.ContainsValue(name))
+			throw new ArgumentException($"Invalid encoding '{name}'!");
+		return encodingNames.First(kvp => kvp.Value == name).Key;
+	}
 }
