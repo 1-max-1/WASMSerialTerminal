@@ -7,7 +7,7 @@ Now also has a button for clearing the received data, and an event is also raise
 @inject IJSRuntime jsRuntime
 
 <div class="d-flex flex-column" style="@Style">
-	<RadzenTextArea ReadOnly="true" Value="@terminalText" Style="white-space: pre; overflow-wrap: normal; overflow-x: scroll;" id="serial-text-output" class="w-100 h-100" />
+	<RadzenTextArea ReadOnly="true" Value="@terminalText" Style="white-space: pre; overflow-wrap: normal; overflow-x: scroll;" id="serial-text-output" class="w-100 h-100" aria-label="Serial data output" />
 
 	<div class="row">
 		<div class="col-12 col-sm-auto">
