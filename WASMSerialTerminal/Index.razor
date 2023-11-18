@@ -78,7 +78,6 @@
 
 		try {
 			bool portSelected = await serialService.OpenPortSelectionDialog(baudRate, dataBits, flowControl, parity, stopBits);
-			isChangingConnectionState = false;
 			if (portSelected) {
 				serialData.Clear();
 				await grid!.Reload();
@@ -93,6 +92,8 @@
 		catch (SerialInitializationException) {
 			await dialogService.Alert("Failed to open serial port. Please try again. The serial port may already be in use by another process.", "Error");
 		}
+
+		isChangingConnectionState = false;
 	}
 
 	private async Task OnDisconnectButtonClick() {
