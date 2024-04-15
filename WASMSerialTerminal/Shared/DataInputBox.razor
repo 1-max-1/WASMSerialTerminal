@@ -17,15 +17,17 @@
 		<RadzenButton Text="Send" ButtonStyle="@ButtonStyle.Info" Click="@SendBytes" Disabled="@Disabled" class="align-self-start ms-2 me-lg-5" style="margin-top: 24px;" />
 	</div>
 	<div class="col-lg-6 d-flex">
-		<div class="flex-grow-1 d-flex flex-column justify-content-end">
+		<div class="flex-grow-1 d-flex flex-column">
 			<label for="send-text-textbox" class="form-label mb-0">Send text</label>
 			<RadzenTextBox id="send-text-textbox" @bind-Value="@currentTextString" size="1" />
 		</div>
-		<div class="mx-2 d-flex flex-column justify-content-end">
+		<div class="mx-2 d-flex flex-column">
 			<label for="lineEndingSelector" class="form-label mb-0 text-nowrap">Line ending</label>
 			<RadzenDropDown Data="@(new string[] { "None", "\\r", "\\n", "\\r\\n" })" @bind-Value="@currentLineEnding" id="lineEndingSelector" Style="width: 100px;" />
 		</div>
-		<div class="d-flex flex-column justify-content-end">
+		<div class="d-flex flex-column">
+			@* Empty spacing to align the button with the text box and drop down fields. *@
+			<p class="form-label mb-0">&nbsp;</p>
 			<RadzenButton Text="Send" ButtonStyle="@ButtonStyle.Info" Click="@SendText" Disabled="@Disabled" />
 		</div>
 	</div>
@@ -40,9 +42,9 @@
 	private bool bytesTextboxHasError = false;
 	private string bytesTextboxErrorMessage = "";
 
-	// Only let new characters in if it is in the correct format: numbers separated by commas.
+	// Block anything that isn't commas or digits
 	private void OnBytesInput(string value) {
-		if (Regex.IsMatch(currentBytesString + value, "^(?:[0-9],?)*$")) {
+		if (Regex.IsMatch(value, "^[0-9,]*$")) {
 			currentBytesString = value;
 		}
 	}
@@ -56,16 +58,20 @@
 	public Encoding TextEncoding { get; set; } = Encoding.UTF8;
 
 	private async Task SendBytes() {
+		// The input box will only allow digits and commas, but there may be empty items
+		currentBytesString = Regex.Replace(currentBytesString, ",,+", ",");
+		currentBytesString = Regex.Replace(currentBytesString, "(^,)|(,$)", ""); // And remove trailing commas
+
 		List<byte> bytes = new();
-		// The string should always be in the correct csv format, as the input box does not allow invalid characters
-		foreach (string number in currentBytesString.Split(',', StringSplitOptions.RemoveEmptyEntries)) {
+		foreach (string number in currentBytesString.Split(',')) {
 			if (!byte.TryParse(number, out byte b)) {
 				bytesTextboxHasError = true;
-				bytesTextboxErrorMessage = $"Incorrect byte value '{number}'!";
+				bytesTextboxErrorMessage = $"Invalid byte value '{number}'!";
 				return;
 			}
 			bytes.Add(b);
 		}
+
 		bytesTextboxHasError = false;
 		await OnDataToBeSent.InvokeAsync(bytes.ToArray());
 	}
