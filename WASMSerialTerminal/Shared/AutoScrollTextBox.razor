@@ -29,6 +29,8 @@ Now also has a button for clearing the received data, and an event is also raise
 	private bool autoScrollDown = true;
 	private bool autoScrollRight = true;
 
+	private const int MAX_CHARS = 25;
+
 	/// <summary>
 	/// Additional HTML styles to put on the root div of this <see cref="AutoScrollTextBox"/>.
 	/// </summary>
@@ -49,13 +51,22 @@ Now also has a button for clearing the received data, and an event is also raise
 	/// Sets the text of the textbox then redraws the component.
 	/// Also updates the scroll bars, if autoscroll is enabled.
 	/// </summary>
-	public void SetTextAndRedraw(string text) {
-		terminalText = text;
+	public void AppendTextAndRedraw(string text) {
+		terminalText += text;
+
+		int overflow = terminalText.Length - MAX_CHARS;
+		overflow = -1;
+		if (overflow > 0) {
+			terminalText = terminalText.Remove(0, overflow);
+		}
+
+		// TODO: the more lines that are in the textbox, increase delay between refreshes. Maybe a linear relationship?
+
 		StateHasChanged();
-		if (autoScrollDown)
+		/*if (autoScrollDown)
 			jsRuntime.InvokeVoidAsync("eval", "document.getElementById('serial-text-output').scrollTop = document.getElementById('serial-text-output').scrollHeight");
 		if (autoScrollRight)
-			jsRuntime.InvokeVoidAsync("eval", "document.getElementById('serial-text-output').scrollLeft = document.getElementById('serial-text-output').scrollWidth");
+			jsRuntime.InvokeVoidAsync("eval", "document.getElementById('serial-text-output').scrollLeft = document.getElementById('serial-text-output').scrollWidth");*/
 	}
 
 	private async Task OnClearButtonClicked() {

@@ -47,6 +47,8 @@
 @code {
 	private RadzenDataGrid<SerialByte>? grid = null;
 	private List<SerialByte> serialData = new();
+	private MemoryStream? serialDataStream;
+	private StreamReader? dataStreamReader;
 
 	private AutoScrollTextBox? autoScrollTextBox;
 
@@ -84,6 +86,9 @@
 				autoScrollTextBox!.ClearText();
 				connectionStatusText = "Connected to: ";
 				connectionStatusBoldText = serialService.DeviceName == null ? "Unknown device" : serialService.DeviceName;
+
+				serialDataStream = new();
+				dataStreamReader = new(serialDataStream, textEncoding, false, -1, true);
 			}
 		}
 		catch (SerialSecurityException) {
@@ -96,17 +101,23 @@
 		isChangingConnectionState = false;
 	}
 
+	private void SharedDisconnectLogic() {
+		connectionStatusText = "(Disconnected)";
+		connectionStatusBoldText = "";
+
+		serialDataStream!.Close();
+		dataStreamReader!.Close();
+	}
+
 	private async Task OnDisconnectButtonClick() {
 		isChangingConnectionState = true;
 		await serialService.ClosePort();
 		isChangingConnectionState = false;
-		connectionStatusText = "(Disconnected)";
-		connectionStatusBoldText = "";
+		SharedDisconnectLogic();
 	}
 
 	private void OnSerialError() {
-		connectionStatusText = "(Disconnected)";
-		connectionStatusBoldText = "";
+		SharedDisconnectLogic();
 		StateHasChanged();
 		dialogService.Alert("Something went wrong with the serial port. Was your device disconnected?", "Error");
 	}
@@ -116,9 +127,19 @@
 			serialData.Add(new SerialByte(b)); // For the data breakdown grid
 		}
 
-		// Only re-render this control, as opposed to re-rendering the whole page.
+		serialDataStream!.Write(data);
+		serialDataStream!.Position -= data.Length; // Writing advances position, we must rewind before reading
+
+		// Only re-render the scrollbox, as opposed to re-rendering the whole page.
 		// This is because rendering the grid is slow and will cause lots of lag if we do it every time we get new data.
-		autoScrollTextBox!.SetTextAndRedraw(textEncoding.GetString(serialData.ConvertAll(sb => sb.DecimalValue).ToArray()));
+
+		char[] buf = new char[data.Length];
+		int charsRead = dataStreamReader!.ReadBlock(buf, 0, data.Length);
+		StringBuilder sb = new(charsRead);
+		for (int i = 0; i < charsRead; i++) {
+			sb.Append(buf[i]);
+		}
+		autoScrollTextBox!.AppendTextAndRedraw(sb.ToString());
 	}
 
 	private async Task OnRefreshGridButtonClick() {

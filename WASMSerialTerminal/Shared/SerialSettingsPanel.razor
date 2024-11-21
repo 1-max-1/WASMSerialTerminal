@@ -56,7 +56,7 @@ The enabled state of all 5 controls is bound to another parameter.
 
 	<div class="col">
 		<p class="text-nowrap"><strong>Text encoding</strong></p>
-		<RadzenDropDown Data="@(new string[] { "UTF-8", "ASCII", "UTF-16 (LE)", "UTF-16 (BE)" })" @bind-Value="@BoundTextEncoding" TValue="@string" Style="width: 130px;" />
+		<RadzenDropDown Data="@(new string[] { "UTF-8", "ASCII", "UTF-16 (LE)", "UTF-16 (BE)" })" Disabled="@Disabled" @bind-Value="@BoundTextEncoding" TValue="@string" Style="width: 130px;" />
 	</div>
 </div>
 
