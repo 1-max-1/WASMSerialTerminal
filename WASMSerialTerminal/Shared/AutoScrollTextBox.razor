@@ -4,21 +4,26 @@ The text box will fill all available width, and will fill all available height m
 Now also has a button for clearing the received data, and an event is also raised when this button is clicked.
 *@
 
+@implements IDisposable
 @inject IJSRuntime jsRuntime
 
 <div class="d-flex flex-column" style="@Style">
 	<RadzenTextArea ReadOnly="true" Value="@terminalText" Style="white-space: pre; overflow-wrap: normal; overflow-x: scroll;" id="serial-text-output" class="w-100 h-100" aria-label="Serial data output" />
 
 	<div class="row">
-		<div class="col-12 col-sm-auto">
+		<div class="col-12 col-md-auto">
 			<RadzenButton Text="Clear" ButtonStyle="@ButtonStyle.Secondary" Size="@ButtonSize.ExtraSmall" Icon="highlight_off" class="align-middle" Click="@OnClearButtonClicked" />
 		</div>
+		<div class="col-12 col-sm-auto">
+			<RadzenCheckBox @bind-Value="@batchUpdate" Name="BatchUpdateCheckbox" TValue="bool" Change="@OnBatchUpdateChange" />
+			<RadzenLabel Text="Batch update" Component="BatchUpdateCheckbox" class="align-middle" />
+		</div>
 		<div class="col-auto">
-			<RadzenCheckBox @bind-Value=@autoScrollDown Name="AutoScrollDownCheckbox" />
+			<RadzenCheckBox @bind-Value="@autoScrollDown" Name="AutoScrollDownCheckbox" />
 			<RadzenLabel Text="Auto scroll down" Component="AutoScrollDownCheckbox" class="align-middle" />
 		</div>
 		<div class="col-auto">
-			<RadzenCheckBox @bind-Value=@autoScrollRight Name="AutoScrollRightCheckbox" />
+			<RadzenCheckBox @bind-Value="@autoScrollRight" Name="AutoScrollRightCheckbox" />
 			<RadzenLabel Text="Auto scroll right" Component="AutoScrollRightCheckbox" class="align-middle" />
 		</div>
 	</div>
@@ -28,6 +33,9 @@ Now also has a button for clearing the received data, and an event is also raise
 	private string terminalText = "";
 	private bool autoScrollDown = true;
 	private bool autoScrollRight = true;
+
+	private bool batchUpdate = false;
+	private System.Timers.Timer updateTimer = new(1500);
 
 	/// <summary>
 	/// Additional HTML styles to put on the root div of this <see cref="AutoScrollTextBox"/>.
@@ -46,15 +54,28 @@ Now also has a button for clearing the received data, and an event is also raise
 	[Parameter]
 	public int MaxChars { get; set; } = 300000;
 
-	/// <summary>
-	/// Clears the internal text variable by setting it to an empty string. <br/>
-	/// The changes will not be reflected until the component is re-rendered.
-	/// </summary>
-	public void ClearText() => terminalText = "";
+	protected override void OnInitialized() {
+		updateTimer.Elapsed += async (_, _) => await InvokeAsync(updateUI);
+	}
+
+	public void Dispose() => updateTimer.Dispose();
+
+	private void OnBatchUpdateChange() {
+		updateTimer.Enabled = batchUpdate;
+	}
+
+    // Redraw and scroll the textbox
+    private void updateUI() {
+		StateHasChanged();
+		if (autoScrollDown)
+			jsRuntime.InvokeVoidAsync("eval", "document.getElementById('serial-text-output').scrollTop = document.getElementById('serial-text-output').scrollHeight");
+		if (autoScrollRight)
+			jsRuntime.InvokeVoidAsync("eval", "document.getElementById('serial-text-output').scrollLeft = document.getElementById('serial-text-output').scrollWidth");
+	}
 
 	/// <summary>
-	/// Sets the text of the textbox then redraws the component.
-	/// Also updates the scroll bars, if autoscroll is enabled.
+	/// Sets the text of the textbox and updates the scroll bars, if autoscroll is enabled.
+	/// Will redraw the component immediately if batch update is disabled.
 	/// </summary>
 	public void AppendTextAndRedraw(string text) {
 		terminalText += text;
@@ -64,14 +85,16 @@ Now also has a button for clearing the received data, and an event is also raise
 			terminalText = terminalText.Remove(0, overflow);
 		}
 
-		// TODO: the more lines that are in the textbox, increase delay between refreshes. Maybe a linear relationship?
-
-		//StateHasChanged();
-		/*if (autoScrollDown)
-			jsRuntime.InvokeVoidAsync("eval", "document.getElementById('serial-text-output').scrollTop = document.getElementById('serial-text-output').scrollHeight");
-		if (autoScrollRight)
-			jsRuntime.InvokeVoidAsync("eval", "document.getElementById('serial-text-output').scrollLeft = document.getElementById('serial-text-output').scrollWidth");*/
+		// Batch update only redraws every 1.5s to improve performance
+		if (!batchUpdate)
+			updateUI();
 	}
+
+	/// <summary>
+	/// Clears the internal text variable by setting it to an empty string. <br/>
+	/// The changes will not be reflected until the component is re-rendered.
+	/// </summary>
+	public void ClearText() => terminalText = "";
 
 	private async Task OnClearButtonClicked() {
 		terminalText = "";
