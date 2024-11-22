@@ -29,8 +29,6 @@ Now also has a button for clearing the received data, and an event is also raise
 	private bool autoScrollDown = true;
 	private bool autoScrollRight = true;
 
-	private const int MAX_CHARS = 25;
-
 	/// <summary>
 	/// Additional HTML styles to put on the root div of this <see cref="AutoScrollTextBox"/>.
 	/// </summary>
@@ -40,6 +38,13 @@ Now also has a button for clearing the received data, and an event is also raise
 	/// <summary> Called when the user clicks the button that clears the stored data. </summary>
 	[Parameter]
 	public EventCallback OnClearDataButtonClicked { get; set; }
+
+	/// <summary>
+	/// Maximum number of characters to display. If this limit is reached,
+	/// characters will be removed from the start of the string to make room for new characters.
+	/// </summary>
+	[Parameter]
+	public int MaxChars { get; set; } = 300000;
 
 	/// <summary>
 	/// Clears the internal text variable by setting it to an empty string. <br/>
@@ -54,15 +59,14 @@ Now also has a button for clearing the received data, and an event is also raise
 	public void AppendTextAndRedraw(string text) {
 		terminalText += text;
 
-		int overflow = terminalText.Length - MAX_CHARS;
-		overflow = -1;
+		int overflow = terminalText.Length - MaxChars;
 		if (overflow > 0) {
 			terminalText = terminalText.Remove(0, overflow);
 		}
 
 		// TODO: the more lines that are in the textbox, increase delay between refreshes. Maybe a linear relationship?
 
-		StateHasChanged();
+		//StateHasChanged();
 		/*if (autoScrollDown)
 			jsRuntime.InvokeVoidAsync("eval", "document.getElementById('serial-text-output').scrollTop = document.getElementById('serial-text-output').scrollHeight");
 		if (autoScrollRight)

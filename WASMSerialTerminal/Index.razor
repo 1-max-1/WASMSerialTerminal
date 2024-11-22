@@ -20,7 +20,7 @@
 				<RadzenButton Text="Close port" ButtonStyle="@ButtonStyle.Danger" Click="@OnDisconnectButtonClick" Visible="@serialService.PortOpen" IsBusy="@isChangingConnectionState" BusyText="Disconnecting..." class="mb-1" />
 				<p class="d-inline text-nowrap ms-2">@connectionStatusText<b>@connectionStatusBoldText</b></p>
 			</div>
-			<AutoScrollTextBox Style="height: 425px; width: 100%;" @ref="@autoScrollTextBox" OnClearDataButtonClicked="@OnClearDataButtonClicked" />
+			<AutoScrollTextBox Style="height: 425px; width: 100%;" @ref="@autoScrollTextBox" OnClearDataButtonClicked="@OnClearDataButtonClicked" MaxChars="150000" />
 		</div>
 		<div class="col-lg-6">
 			<div class="mb-1">
@@ -47,8 +47,6 @@
 @code {
 	private RadzenDataGrid<SerialByte>? grid = null;
 	private List<SerialByte> serialData = new();
-	private MemoryStream? serialDataStream;
-	private StreamReader? dataStreamReader;
 
 	private AutoScrollTextBox? autoScrollTextBox;
 
@@ -63,6 +61,10 @@
 	private string connectionStatusText = "(Disconnected)";
 	private string connectionStatusBoldText = "";
 	private bool isChangingConnectionState = false;
+
+	private MemoryStream? serialDataStream;
+	private StreamReader? dataStreamReader;
+	private const int MAX_BYTES = 150000;
 
 	protected override void OnInitialized() {
 		serialService.DataReceived += OnSerialDataReceived;
@@ -125,6 +127,11 @@
 	private void OnSerialDataReceived(byte[] data) {
 		foreach (byte b in data) {
 			serialData.Add(new SerialByte(b)); // For the data breakdown grid
+		}
+
+		int overflow = serialData.Count - MAX_BYTES;
+		if (overflow > 0) {
+			serialData.RemoveRange(0, overflow);
 		}
 
 		serialDataStream!.Write(data);
