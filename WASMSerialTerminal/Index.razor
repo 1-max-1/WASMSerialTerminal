@@ -67,7 +67,6 @@
 	private const int MAX_BYTES = 150000;
 
 	protected override void OnInitialized() {
-		serialService.DataReceived += OnSerialDataReceived;
 		serialService.SerialError += OnSerialError;
 	}
 
@@ -91,6 +90,7 @@
 
 				serialDataStream = new();
 				dataStreamReader = new(serialDataStream, textEncoding, false, -1, true);
+				serialService.DataReceived += OnSerialDataReceived;
 			}
 		}
 		catch (SerialSecurityException) {
@@ -107,8 +107,9 @@
 		connectionStatusText = "(Disconnected)";
 		connectionStatusBoldText = "";
 
-		serialDataStream!.Close();
-		dataStreamReader!.Close();
+		serialService.DataReceived -= OnSerialDataReceived;
+		serialDataStream?.Close();
+		dataStreamReader?.Close();
 	}
 
 	private async Task OnDisconnectButtonClick() {
