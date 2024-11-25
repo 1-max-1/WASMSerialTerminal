@@ -43,9 +43,9 @@
 	private string bytesTextboxErrorMessage = "";
 
 	// Block anything that isn't commas or digits
-	private void OnBytesInput(string value) {
-		if (Regex.IsMatch(value, "^[0-9,]*$")) {
-			currentBytesString = value;
+	private void OnBytesInput(string? value) {
+		if (Regex.IsMatch(value!, "^[0-9,]*$")) {
+			currentBytesString = value!;
 		}
 	}
 
