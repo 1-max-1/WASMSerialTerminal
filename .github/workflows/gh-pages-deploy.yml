@@ -36,7 +36,7 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 7.0.101
+          dotnet-version: 9.0.100
       
       # Will install all the packages for the project
       - name: Restore NuGet Packages
